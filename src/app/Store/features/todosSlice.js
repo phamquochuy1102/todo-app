@@ -1,5 +1,27 @@
-import { createSlice, nanoid } from "@reduxjs/toolkit";
+import { createAsyncThunk, createSlice, nanoid } from "@reduxjs/toolkit";
 import axios from "axios";
+
+export const getTodos = createAsyncThunk("todos/todosFetched", async () => {
+  const res = await axios.get(
+    "https://jsonplaceholder.typicode.com/todos?_limit=5"
+  );
+  return res.data;
+});
+
+export const addTodo = createAsyncThunk("todos/todosAdded", async (title) => {
+  const newTodo = {
+    id: nanoid(),
+    title,
+    completed: false,
+  };
+  await axios.post("https://jsonplaceholder.typicode.com/todos?", newTodo);
+  return newTodo;
+});
+
+export const deleteTodo = createAsyncThunk("todos/todosDeleted", async (id) => {
+  await axios.delete(`https://jsonplaceholder.typicode.com/todos/${id}`);
+  return id;
+});
 
 const todosSlice = createSlice({
   name: "todos",
@@ -7,20 +29,6 @@ const todosSlice = createSlice({
     allTodos: [],
   },
   reducers: {
-    addTodo: {
-      reducer(state, action) {
-        state.allTodos.unshift(action.payload);
-      },
-      prepare(title) {
-        return {
-          payload: {
-            id: nanoid(),
-            title,
-            completed: false,
-          },
-        };
-      },
-    },
     setCompleted: {
       reducer(state, action) {
         state.allTodos.map((item) => {
@@ -36,42 +44,32 @@ const todosSlice = createSlice({
         };
       },
     },
-    deleteTodo: {
-      reducer(state, action) {
-        state.allTodos = state.allTodos.filter(
-          (item) => item.id !== action.payload
-        );
-      },
-      prepare(id) {
-        return {
-          payload: id,
-        };
-      },
+  },
+  extraReducers: {
+    [getTodos.pending]: (state, action) => {
+      console.log("Fetching data from backend...");
     },
-    todosFetched(state, action) {
+    [getTodos.fulfilled]: (state, action) => {
+      console.log("Done");
       state.allTodos = action.payload;
+    },
+    [getTodos.rejected]: (state, action) => {
+      console.log("Fail to get data...");
+    },
+    [addTodo.fulfilled]: (state, action) => {
+      state.allTodos.unshift(action.payload);
+    },
+    [deleteTodo.fulfilled]: (state, action) => {
+      state.allTodos = state.allTodos.filter(
+        (item) => item.id !== action.payload
+      );
     },
   },
 });
-
-export const getTodos = () => {
-  const getTodosAsync = async (dispatch) => {
-    try {
-      const res = await axios.get(
-        "https://jsonplaceholder.typicode.com/todos?_limit=5"
-      );
-      dispatch(todosFetched(res.data));
-    } catch (error) {
-      console.log(error);
-    }
-  };
-  return getTodosAsync;
-};
 
 // reducer
 const todosReducer = todosSlice.reducer;
 
 export default todosReducer;
 
-export const { addTodo, setCompleted, deleteTodo, todosFetched } =
-  todosSlice.actions;
+export const { setCompleted } = todosSlice.actions;
